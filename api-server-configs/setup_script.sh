@@ -94,20 +94,25 @@ setup_ssh_for_github() {
 # Function to install required dependencies
 install_dependencies() {
     sudo apt update && sudo apt upgrade -y
-    sudo apt install -y nginx mongodb git
+    sudo apt install -y nginx git gnupg curl
 
-    # Install NVM (Node Version Manager)
+    curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+    echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+    sudo apt-get update
+    sudo apt-get install -y mongodb-org
+
+    sudo systemctl restart nginx
+    sudo systemctl restart mongod
+
+    read -p "Enter an additional IP address to bind MongoDB (optional): " additional_ip
+    if [ ! -z "$additional_ip" ]; then
+        sudo sed -i "/^  bindIp:/ s/$/, $additional_ip/" /etc/mongod.conf
+        sudo systemctl restart mongod
+    fi
+
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-
-    # Source NVM script to use it in the current session
-    export NVM_DIR="$HOME/.nvm"
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-    [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
-
-    # Install the latest LTS version of Node.js
+    source ~/.bashrc
     nvm install --lts
-
-    # Install PM2
     npm install pm2@latest -g
 }
 
