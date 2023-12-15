@@ -1,21 +1,37 @@
 #!/bin/bash
 
-# Global variable for SSH key path
-SSH_KEY_PATH="/home"
+# Global variable
+PROJECT_PATH=$HOME
 
 # Function to create a new sudo user
 create_sudo_user() {
-    read -p "Enter the new sudo username: " NEW_USER
-    read -s -p "Enter a password for the new user: " PASSWORD
+     # Ask for the new username
+    read -p "Enter the new username: " NEW_USER
+
+    # Check if the NEW_USER already exists
+    if id "$NEW_USER" &>/dev/null; then
+        echo "User $NEW_USER already exists. Skipping user creation."
+        return
+    fi
+
+    # Ask for the user's password
+    read -sp "Enter the password: " PASSWORD
     echo
 
-    SSH_KEY="$SSH_KEY_PATH/$NEW_USER/.ssh/id_rsa"
-    PROJECT_PATH="/home/$NEW_USER"
+    # Add the new user with /bin/bash as the default shell
+    useradd -m -s /bin/bash $NEW_USER
 
-    echo "Creating a new user: $NEW_USER"
-    adduser --disabled-password --gecos "" $NEW_USER
-    echo "$NEW_USER:$PASSWORD" | chpasswd
-    usermod -aG sudo $NEW_USER
+    # Check if the user was created successfully
+    if [ $? -eq 0 ]; then
+        echo "User $NEW_USER created successfully."
+        # Set the user's PASSWORD
+        echo "$NEW_USER:$PASSWORD" | chpasswd
+        # Add the user to the sudo group
+        usermod -aG sudo $NEW_USER
+    else
+        echo "Failed to create user."
+    fi
+
 
     # Create SSH directory for the new user
     mkdir -p /home/$NEW_USER/.ssh
@@ -45,20 +61,18 @@ install_and_configure_s3cmd() {
     read -p "Enter your DigitalOcean Endpoint URL (e.g., nyc3.digitaloceanspaces.com): " DO_ENDPOINT_URL
 
     # Create the configuration file
-    s3cmd --configure \
-          --access_key=$DO_SPACES_ACCESS_KEY \
+    s3cmd --access_key=$DO_SPACES_ACCESS_KEY \
           --secret_key=$DO_SPACES_SECRET_KEY \
           --host=$DO_ENDPOINT_URL \
           --host-bucket="%(bucket)s.$DO_ENDPOINT_URL" \
           --bucket-location=us-east-1 \
           --no-encrypt \
-          --signature-v2 \
-          --guess-mime-type \
-          --no-check-certificate \
-          --save --config=~/.s3cfg
+	      --multipart-chunk-size-mb=1024 \
+	      --dump-config 2>&1
 
     echo "s3cmd has been installed and configured."
 }
+
 
 # Function to set up SSH for GitHub
 setup_ssh_for_github() {
@@ -96,20 +110,40 @@ install_dependencies() {
     sudo apt update && sudo apt upgrade -y
     sudo apt install -y nginx git gnupg curl
 
+    # Install MongoDB
     curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
     echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
     sudo apt-get update
     sudo apt-get install -y mongodb-org
 
+    # Restart services
     sudo systemctl restart nginx
     sudo systemctl restart mongod
 
+    # Ask for an additional IP address to bind MongoDB
     read -p "Enter an additional IP address to bind MongoDB (optional): " additional_ip
     if [ ! -z "$additional_ip" ]; then
         sudo sed -i "/^  bindIp:/ s/$/, $additional_ip/" /etc/mongod.conf
         sudo systemctl restart mongod
     fi
 
+    # Ask if user wants to bind the server IP address
+    read -p "Do you want to bind the server's IP address to MongoDB? [Y/n] " bind_server_ip
+    if [[ $bind_server_ip =~ ^[Yy]$ ]]
+    then
+        # Get the primary IP address of the server
+        server_ip=$(hostname -I | awk '{print $1}')
+
+        if [ ! -z "$server_ip" ]; then
+            echo "Binding server IP address ($server_ip) to MongoDB configuration..."
+            sudo sed -i "/^  bindIp:/ s/$/, $server_ip/" /etc/mongod.conf
+            sudo systemctl restart mongod
+        else
+            echo "Failed to retrieve server IP address."
+        fi
+    fi
+
+    # Install Node.js and PM2
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
     source ~/.bashrc
     nvm install --lts
@@ -122,14 +156,15 @@ clone_repositories() {
     mkdir -p ${PROJECT_PATH}/{backend,frontend,server-configs,backups}
     git clone git@github.com:JantuDeb/studypath-api-v2.git ${PROJECT_PATH}/backend
     git clone git@github.com:JantuDeb/studypath-api-admin.git ${PROJECT_PATH}/frontend
-    git clone git@github.com:username/repo-for-server-configs.git ${PROJECT_PATH}/server-configs
+    git clone git@github.com:JantuDeb/server-configs.git ${PROJECT_PATH}/server-configs
 }
 
 
 # Function to copy configurations from server-config repo and create backups
 copy_configurations() {
-    echo "Please enter the virtual host configuration file name (e.g., domainname.com):"
-    read VIRTUAL_HOST
+
+    # Prompt user for the virtual host configuration file name
+    read -p "Please enter the virtual host configuration file name (e.g., domainname.com): " VIRTUAL_HOST
 
     # Backup original configuration files
     sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
@@ -139,10 +174,25 @@ copy_configurations() {
     if [ -f "/etc/nginx/sites-available/$VIRTUAL_HOST" ]; then
         sudo cp /etc/nginx/sites-available/$VIRTUAL_HOST /etc/nginx/sites-available/$VIRTUAL_HOST.bak
     fi
-    sudo cp ${PROJECT_PATH}/server-config/nginx.conf /etc/nginx/
-    sudo cp ${PROJECT_PATH}/server-config/sites-available/$VIRTUAL_HOST /etc/nginx/sites-available/
-    sudo cp ${PROJECT_PATH}/server-config/mongo.conf /etc/mongod.conf
-    # ... other configurations ...
+
+    sudo cp ${PROJECT_PATH}/server-configs/api-server-configs/api_server.conf /etc/nginx/conf.d/
+    sudo cp ${PROJECT_PATH}/server-configs/api-server-configs/$VIRTUAL_HOST /etc/nginx/sites-available/
+
+     # Prompt user to enter a new server name
+    read -p "Please enter the new server name for the Nginx configuration (e.g., example.com): " NEW_SERVER_NAME
+
+    # Update the server_name in the Nginx configuration
+    sudo sed -i "s/server_name .*;/server_name $NEW_SERVER_NAME;/" /etc/nginx/sites-available/$VIRTUAL_HOST
+
+    if [ -L "/etc/nginx/sites-enabled/$VIRTUAL_HOST" ]; then
+    	sudo rm /etc/nginx/sites-enabled/$VIRTUAL_HOST
+    fi
+    
+    # sudo cp ${PROJECT_PATH}/server-configs/api-server-configs/mongod.conf /etc/
+    sudo ln -s /etc/nginx/sites-available/$VIRTUAL_HOST /etc/nginx/sites-enabled/
+
+    # Reload Nginx to apply new configurations
+    #sudo nginx -t && sudo systemctl reload nginx
 }
 
 # Function to sync data from DigitalOcean Spaces to the local backups directory
@@ -206,23 +256,39 @@ build_and_run_app() {
     pm2 startup
 }
 
-# Main function to coordinate the setup
-main() {
-    if [ "$(id -u)" -ne 0 ]; then
-        echo "This script must be run as root."
+# Function to continue script execution as sudo user
+continue_as_sudo_user() {
+    # Check if the user exists
+    if id "$USER" &>/dev/null; then
+        echo "Continuing as user $USER..."
+    else
+        echo "User $USER does not exist. Please create a user first."
         exit 1
     fi
 
-    create_sudo_user
-    su - $NEW_USER -c "install_dependencies"
-    su - $NEW_USER -c "clone_repositories"
-    su - $NEW_USER -c "copy_configurations"
-    su - $NEW_USER -c "restore_database"
-    su - $NEW_USER -c "build_and_run_app"
+    install_dependencies
+    clone_repositories
+    copy_configurations
+    restore_database
+    build_and_run_app
     configure_firewall
     install_ssl
 
     echo "Setup completed successfully."
+}
+
+
+
+main() {
+    # Check if the script is executed with sudo by a non-root user
+    if [ -n "$SUDO_USER" ]; then
+        continue_as_sudo_user
+    elif [ "$(id -u)" -eq 0 ]; then
+        create_sudo_user
+    else
+        echo "Please run this script as root or with 'sudo'."
+        exit 1
+    fi
 }
 
 # Execute main function
