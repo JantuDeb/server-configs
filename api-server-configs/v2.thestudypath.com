@@ -2,7 +2,7 @@
 #
 server {
 
-        root /home/jantu/FRONTEND/studypath-admin-v2/build;
+        root /home/jantu/frontend/studypath-admin-v2/build;
 
         server_name v2.thestudypath.com;
 
@@ -28,11 +28,11 @@ server {
 
 
 
-    #listen 443 ssl; # managed by Certbot
-    #ssl_certificate /etc/letsencrypt/live/v2.thestudypath.com/fullchain.pem; # managed by Certbot
-    #ssl_certificate_key /etc/letsencrypt/live/v2.thestudypath.com/privkey.pem; # managed by Certbot
-    #include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
-    #ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/v2.thestudypath.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/v2.thestudypath.com/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
 
 }
 
@@ -40,15 +40,15 @@ server {
 
 
 server {
-    #if ($host = v2.thestudypath.com) {
-    #    return 301 https://$host$request_uri;
-    #} # managed by Certbot
+    if ($host = v2.thestudypath.com) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
 
 
 
     server_name v2.thestudypath.com;
     listen 80;
-    #return 404; # managed by Certbot
+    return 404; # managed by Certbot
 
 
 }

@@ -93,10 +93,22 @@ setup_ssh_for_github() {
     fi
 
     # Start the ssh-agent in the background
-    eval "$(ssh-agent -s)"
+    #eval "$(ssh-agent -s)"
 
     # Add SSH key to the ssh-agent
-    ssh-add $SSH_KEY
+    #ssh-add ~/.ssh/github_rsa
+
+    # Configure SSH to use the key for GitHub
+    SSH_CONFIG="$HOME/.ssh/config"
+
+    if ! grep -q "Host github.com" "$SSH_CONFIG"; then
+        echo "Host github.com" >> "$SSH_CONFIG"
+        echo "  IdentityFile $SSH_KEY" >> "$SSH_CONFIG"
+        echo "  IdentitiesOnly yes" >> "$SSH_CONFIG"
+        echo "SSH configuration for GitHub added to $SSH_CONFIG."
+    else
+        echo "GitHub configuration already exists in $SSH_CONFIG."
+    fi
 
     # Output the public key and instruct the user to add it to GitHub
     echo "go to https://github.com/settings/ssh/new and copy the following SSH public key to add it to your GitHub account:"
@@ -162,7 +174,7 @@ clone_repositories() {
 
 # Function to copy configurations from server-config repo and create backups
 copy_configurations() {
-
+    NEW_ROOT_PATH=${PROJECT_PATH}/frontend/studypath-admin-v2/build
     # Prompt user for the virtual host configuration file name
     read -p "Please enter the virtual host configuration file name (e.g., domainname.com): " VIRTUAL_HOST
 
@@ -183,6 +195,10 @@ copy_configurations() {
 
     # Update the server_name in the Nginx configuration
     sudo sed -i "s/server_name .*;/server_name $NEW_SERVER_NAME;/" /etc/nginx/sites-available/$VIRTUAL_HOST
+    # Update the root in the Nginx configuration
+    sudo sed -i "s|root .*;|root $NEW_ROOT_PATH;|" /etc/nginx/sites-available/$VIRTUAL_HOST
+
+    sudo sed -i "s|if (\$host = v2.thestudypath.com)|if (\$host = $NEW_SERVER_NAME)|" /etc/nginx/sites-available/$VIRTUAL_HOST
 
     if [ -L "/etc/nginx/sites-enabled/$VIRTUAL_HOST" ]; then
     	sudo rm /etc/nginx/sites-enabled/$VIRTUAL_HOST
@@ -200,13 +216,13 @@ sync_do_spaces_to_backups() {
     echo "Syncing data from DigitalOcean Spaces..."
 
     # Prompt for the DigitalOcean Spaces path
-    read -p "Enter the path in your DigitalOcean Space (e.g., spacename/path/): " do_space_path
+    read -p "Enter the path of backup in your DigitalOcean Space (e.g., mongo-database-backups/v2/): " DO_SPACES_PATH
 
     # Define the local backup directory
     local_backup_dir="${PROJECT_PATH}/backups"
 
     # Perform the sync operation
-    s3cmd sync s3://${do_space_path} ${local_backup_dir}/
+    s3cmd sync s3://${DO_SPACES_PATH} ${local_backup_dir}/
 
     echo "Sync operation completed."
 }
@@ -219,7 +235,7 @@ configure_firewall() {
     sudo ufw default allow outgoing
     sudo ufw allow OpenSSH
     sudo ufw allow 'Nginx Full'
-    sudo ufw --force enable
+    sudo ufw enable
 }
 
 # Function to install and configure SSL
