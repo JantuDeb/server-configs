@@ -271,7 +271,7 @@ restore_database() {
     read -p "Enter MongoDB database name: " db_name
     read -p "Enter MongoDB username: " db_user
     read -p "Enter MongoDB password: " db_pass
-    read -p "Enter the backup file name to restore: " backup_file
+    read -p "Enter the backup file path to restore: " backup_file
     BACKUP_PATH=""
 
     while [ ! -f "$BACKUP_PATH" ]; do
