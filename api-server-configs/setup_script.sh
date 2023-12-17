@@ -83,7 +83,6 @@ setup_ssh_for_github() {
     echo "Setting up SSH for GitHub..."
 
     # Prompt for the user's email address
-    read -p "Enter your email address for the SSH key: " user_email
 
     # Define the SSH key path
     SSH_KEY="$HOME/.ssh/github_rsa"
@@ -92,6 +91,7 @@ setup_ssh_for_github() {
     if [ -f "$SSH_KEY" ]; then
         echo "SSH key already exists at $SSH_KEY. Skipping key generation."
     else
+        read -p "Enter your email address for the SSH key: " user_email     
         # Generate an SSH key for GitHub without a passphrase
         echo -e "\n" | ssh-keygen -t rsa -b 4096 -C "$user_email" -f $SSH_KEY
     fi
