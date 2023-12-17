@@ -50,6 +50,10 @@ create_sudo_user() {
 install_and_configure_s3cmd() {
     echo "Installing s3cmd for DigitalOcean Spaces management..."
 
+    if [ -f "$HOME/.s3cfg" ]; then
+        echo "s3cmd is already configured."
+        return
+    fi
     # Install s3cmd
     sudo apt-get update
     sudo apt-get install -y s3cmd
@@ -131,11 +135,11 @@ install_dependencies() {
     # Restart services
     sudo systemctl restart nginx
     sudo systemctl restart mongod
-
+    MONGO_CONFIG_FILE=/etc/mongod.conf
     # Ask for an additional IP address to bind MongoDB
     read -p "Enter an additional IP address to bind MongoDB (optional): " additional_ip
     if [ ! -z "$additional_ip" ]; then
-        sudo sed -i "/^  bindIp:/ s/$/, $additional_ip/" /etc/mongod.conf
+        sudo sed -i "/^  bindIp:/ s/$/, $additional_ip/" $MONGO_CONFIG_FILE
         sudo systemctl restart mongod
     fi
 
@@ -148,7 +152,9 @@ install_dependencies() {
 
         if [ ! -z "$server_ip" ]; then
             echo "Binding server IP address ($server_ip) to MongoDB configuration..."
-            sudo sed -i "/^  bindIp:/ s/$/, $server_ip/" /etc/mongod.conf
+            sudo sed -i "/^  bindIp:/ s/$/, $server_ip/" $MONGO_CONFIG_FILE
+            echo "Enabling MongoDB authentication..."
+            sudo sed -i '/security:/a \ \ authorization: "enabled"' $MONGO_CONFIG_FILE
             sudo systemctl restart mongod
         else
             echo "Failed to retrieve server IP address."
@@ -198,6 +204,7 @@ copy_configurations() {
 
     # Update the server_name in the Nginx configuration
     sudo sed -i "s/server_name .*;/server_name $NEW_SERVER_NAME;/" /etc/nginx/sites-available/$VIRTUAL_HOST
+    sudo sed -i "s/example\.com/$NEW_SERVER_NAME/g" /etc/nginx/sites-available/$VIRTUAL_HOST
     # Update the root in the Nginx configuration
     sudo sed -i "s|root .*;|root $NEW_ROOT_PATH;|" /etc/nginx/sites-available/$VIRTUAL_HOST
 
