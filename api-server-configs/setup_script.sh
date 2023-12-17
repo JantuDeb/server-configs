@@ -154,7 +154,7 @@ install_dependencies() {
             echo "Binding server IP address ($server_ip) to MongoDB configuration..."
             sudo sed -i "/^  bindIp:/ s/$/, $server_ip/" $MONGO_CONFIG_FILE
             echo "Enabling MongoDB authentication..."
-            sudo sed -i '/security:/a \ \ authorization: "enabled"' $MONGO_CONFIG_FILE
+            sudo sed -i '/^#*security:/a \ \ authorization: "enabled"' $MONGO_CONFIG_FILE
             sudo systemctl restart mongod
         else
             echo "Failed to retrieve server IP address."
