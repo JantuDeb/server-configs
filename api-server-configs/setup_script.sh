@@ -272,7 +272,11 @@ restore_database() {
             echo "Backup file $BACKUP_PATH does not exist. Please try again."
         fi
     done
+    # MongoDB command to create a user
+    MONGO_CMD="db.createUser({user: '$db_user', pwd: '$db_pass', roles: [{role: 'readWrite', db: '$db_name'}]})"
 
+    # Connect to MongoDB and execute the command
+    mongo --eval "use $db_name; $MONGO_CMD"
     mongorestore --uri "mongodb://$db_user:$db_pass@localhost:27017/$db_name" --gzip --archive=$BACKUP_PATH
 }
 
