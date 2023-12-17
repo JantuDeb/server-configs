@@ -188,7 +188,7 @@ copy_configurations() {
     fi
 
     sudo cp ${PROJECT_PATH}/server-configs/api-server-configs/api_server.conf /etc/nginx/conf.d/
-    sudo cp ${PROJECT_PATH}/server-configs/api-server-configs/$VIRTUAL_HOST /etc/nginx/sites-available/
+    sudo cp ${PROJECT_PATH}/server-configs/api-server-configs/example.com.conf /etc/nginx/sites-available/$VIRTUAL_HOST
 
      # Prompt user to enter a new server name
     read -p "Please enter the new server name for the Nginx configuration (e.g., example.com): " NEW_SERVER_NAME
@@ -197,8 +197,6 @@ copy_configurations() {
     sudo sed -i "s/server_name .*;/server_name $NEW_SERVER_NAME;/" /etc/nginx/sites-available/$VIRTUAL_HOST
     # Update the root in the Nginx configuration
     sudo sed -i "s|root .*;|root $NEW_ROOT_PATH;|" /etc/nginx/sites-available/$VIRTUAL_HOST
-
-    sudo sed -i "s|if (\$host = v2.thestudypath.com)|if (\$host = $NEW_SERVER_NAME)|" /etc/nginx/sites-available/$VIRTUAL_HOST
 
     if [ -L "/etc/nginx/sites-enabled/$VIRTUAL_HOST" ]; then
     	sudo rm /etc/nginx/sites-enabled/$VIRTUAL_HOST
@@ -240,12 +238,23 @@ configure_firewall() {
 
 # Function to install and configure SSL
 install_ssl() {
-    sudo apt install -y certbot python3-certbot-nginx
-    # The following command requires manual domain input
-    sudo certbot --nginx
-    sudo systemctl enable certbot.timer
-    sudo systemctl start certbot.timer
+    # Ask user if they want to install SSL
+    read -p "Do you want to install SSL? (y/n): " install_ssl_answer
+
+    # Check if the user's answer is 'y' or 'Y'
+    if [[ $install_ssl_answer == [Yy] ]]; then
+        # Install Certbot and its Nginx plugin
+        sudo apt install -y certbot python3-certbot-nginx
+        # Prompt for domain name input
+        read -p "Enter your domain name: " domain
+        # Install the certificate without modifying Nginx configuration
+        sudo certbot certonly --nginx -d "$domain"
+        sudo service nginx restart
+    else
+        echo "SSL installation skipped."
+    fi
 }
+
 
 # Function to restore the database
 restore_database() {
@@ -253,12 +262,16 @@ restore_database() {
     read -p "Enter MongoDB username: " db_user
     read -p "Enter MongoDB password: " db_pass
     read -p "Enter the backup file name to restore: " backup_file
-    BACKUP_PATH="${PROJECT_PATH}/backups/$backup_file"
+    BACKUP_PATH=""
 
-    if [ ! -f "$BACKUP_PATH" ]; then
-        echo "Backup file $BACKUP_PATH does not exist. Exiting."
-        exit 1
-    fi
+    while [ ! -f "$BACKUP_PATH" ]; do
+        read -p "Enter the backup file name to restore: " backup_file
+        BACKUP_PATH="${PROJECT_PATH}/backups/$backup_file"
+
+        if [ ! -f "$BACKUP_PATH" ]; then
+            echo "Backup file $BACKUP_PATH does not exist. Please try again."
+        fi
+    done
 
     mongorestore --uri "mongodb://$db_user:$db_pass@localhost:27017/$db_name" --gzip --archive=$BACKUP_PATH
 }
@@ -281,10 +294,12 @@ continue_as_sudo_user() {
         echo "User $USER does not exist. Please create a user first."
         exit 1
     fi
-
+    install_and_configure_s3cmd
+    setup_ssh_for_github
     install_dependencies
     clone_repositories
     copy_configurations
+    sync_do_spaces_to_backups
     restore_database
     build_and_run_app
     configure_firewall
