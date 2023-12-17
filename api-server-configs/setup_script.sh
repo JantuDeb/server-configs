@@ -286,7 +286,7 @@ restore_database() {
     MONGO_CMD="db.createUser({user: '$db_user', pwd: '$db_pass', roles: [{role: 'readWrite', db: '$db_name'}]})"
 
     # Connect to MongoDB and execute the command
-    mongo --eval "use $db_name; $MONGO_CMD"
+    mongod --eval "use $db_name; $MONGO_CMD"
     mongorestore --uri "mongodb://$db_user:$db_pass@localhost:27017/$db_name" --gzip --archive=$BACKUP_PATH
 }
 
