@@ -271,22 +271,23 @@ restore_database() {
     read -p "Enter MongoDB database name: " db_name
     read -p "Enter MongoDB username: " db_user
     read -p "Enter MongoDB password: " db_pass
-    read -p "Enter the backup file path to restore: " backup_file
     BACKUP_PATH=""
 
     while [ ! -f "$BACKUP_PATH" ]; do
-        read -p "Enter the backup file name to restore: " backup_file
-        BACKUP_PATH="${PROJECT_PATH}/backups/$backup_file"
+        read -p "Enter the backup file name to restore: " backup_file_path
+        BACKUP_PATH="${PROJECT_PATH}/backups/$backup_file_path"
 
         if [ ! -f "$BACKUP_PATH" ]; then
             echo "Backup file $BACKUP_PATH does not exist. Please try again."
         fi
     done
     # MongoDB command to create a user
-    MONGO_CMD="db.createUser({user: '$db_user', pwd: '$db_pass', roles: [{role: 'readWrite', db: '$db_name'}]})"
+    CREATE_USER="db.createUser({user: '$db_user', pwd: '$db_pass', roles: [{role: 'readWrite', db: '$db_name'}]})"
+    AUTHENTICATE_USER="db.auth({user: '$db_user', pwd: '$db_pass'})"
 
     # Connect to MongoDB and execute the command
-    mongod --eval "use $db_name; $MONGO_CMD"
+    mongod --eval "use $db_name; $CREATE_USER"
+    mongod --eval "use $db_name; $AUTHENTICATE_USER"
     mongorestore --uri "mongodb://$db_user:$db_pass@localhost:27017/$db_name" --gzip --archive=$BACKUP_PATH
 }
 
