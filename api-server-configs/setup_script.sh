@@ -327,13 +327,23 @@ continue_as_sudo_user() {
 
 main() {
     # Check if the script is executed with sudo by a non-root user
-    if [ -n "$SUDO_USER" ]; then
-        continue_as_sudo_user
-    elif [ "$(id -u)" -eq 0 ]; then
-        create_sudo_user
+    # if [ -n "$SUDO_USER" ]; then
+    #     continue_as_sudo_user
+    # elif [ "$(id -u)" -eq 0 ]; then
+    #     create_sudo_user
+    # else
+    #     echo "Please run this script as root or with 'sudo'."
+    #     exit 1
+    # fi
+
+    if [ `whoami` != 'root' ];then
+	    if sudo -l &> /dev/null; then
+                continue_as_sudo_user
+        else
+                echo "Please run this script as root to create a new sudo user or a user with sudo prev."
+        fi
     else
-        echo "Please run this script as root or with 'sudo'."
-        exit 1
+	    create_sudo_user
     fi
 }
 
