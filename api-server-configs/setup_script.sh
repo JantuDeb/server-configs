@@ -153,8 +153,6 @@ install_dependencies() {
         if [ ! -z "$server_ip" ]; then
             echo "Binding server IP address ($server_ip) to MongoDB configuration..."
             sudo sed -i "/^  bindIp:/ s/$/, $server_ip/" $MONGO_CONFIG_FILE
-            echo "Enabling MongoDB authentication..."
-            sudo sed -i '/^#*security:/a \ \ authorization: "enabled"' $MONGO_CONFIG_FILE
             sudo systemctl restart mongod
         else
             echo "Failed to retrieve server IP address."
@@ -169,6 +167,91 @@ install_dependencies() {
     [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
     nvm install --lts
     npm install pm2@latest -g
+}
+
+# Function to create MongoDB admin user
+create_mongo_admin_user() {
+        mongosh <<EOF
+    use admin
+    db.createUser({
+    user: "$ADMIN_USER",
+    pwd: "$ADMIN_PWD",
+    roles: [ { role: "readWriteAnyDatabase", db: "admin" }, { role: "userAdminAnyDatabase", db: "admin" } ]
+    })
+    EOF
+}
+
+
+# Function to enable authentication in MongoDB configuration
+enable_authentication() {
+    # Check if 'security' line is commented out and uncomment it
+    sudo sed -i '/^#security:/s/^#//' /etc/mongod.conf
+
+    # Check if 'authorization: enabled' is present; if not, add it under 'security'
+    if ! grep -q 'authorization: enabled' /etc/mongod.conf; then
+        sudo sed -i '/^security:/a\  authorization: enabled' /etc/mongod.conf
+    fi
+
+    # Restart MongoDB to apply changes
+    sudo systemctl restart mongod
+}
+
+# Function to create a new database user
+create_new_user() {
+        mongosh --authenticationDatabase "admin" -u "$ADMIN_USER" -p "$ADMIN_PWD" <<EOF
+    use $NEW_DB
+    db.createUser({
+    user: "$NEW_USER",
+    pwd: "$NEW_PWD",
+    roles: [{ role: "dbAdmin", db: "$NEW_DB" }, { role: "readWrite", db: "$NEW_DB" }, { role: "userAdmin", db: "$NEW_DB" }]
+    })
+    EOF
+}
+
+# Function to restore database from backup archive
+restore_from_backup() {
+    mongorestore --uri="mongodb://$NEW_USER:$NEW_PWD@localhost:27017/$NEW_DB" --nsInclude="*" --archive="$BACKUP_ARCHIVE" --gzip
+}
+
+setup_mongodb(){
+    echo "Enter MongoDB Admin User Credentials"
+    read -p "Admin Username: " ADMIN_USER
+    while true; do
+        read -sp "Admin Password: " ADMIN_PWD
+        echo
+        read -sp "Confirm Admin Password: " ADMIN_PWD_CONFIRM
+        echo
+        [ "$ADMIN_PWD" = "$ADMIN_PWD_CONFIRM" ] && break
+        echo "Passwords do not match. Please try again."
+    done
+
+    echo "Enter New Database and User Credentials"
+    read -p "New Database Name: " NEW_DB
+    read -p "New Username: " NEW_USER
+
+    while true; do
+        read -sp "New Password: " NEW_PWD
+        echo
+        read -sp "Confirm New Password: " NEW_PWD_CONFIRM
+        echo
+        [ "$NEW_PWD" = "$NEW_PWD_CONFIRM" ] && break
+        echo "Passwords do not match. Please try again."
+    done
+
+    echo "Enter MongoDB Backup Archive Path"
+    read -p "Backup Archive Path: " BACKUP_ARCHIVE
+
+
+    # Main script execution
+    create_mongo_admin_user
+    enable_authentication
+    sudo service mongod restart
+    sleep 5  # Wait for MongoDB to restart
+    create_new_user
+    restore_from_backup
+
+    echo "MongoDB setup and restore complete."
+
 }
 
 
