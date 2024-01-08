@@ -72,7 +72,7 @@ install_and_configure_s3cmd() {
           --bucket-location=us-east-1 \
           --no-encrypt \
 	      --multipart-chunk-size-mb=1024 \
-	      --dump-config 2>&1
+	      --dump-config 2>&1 | tee .s3cfg
 
     echo "s3cmd has been installed and configured."
 }
