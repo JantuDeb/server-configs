@@ -119,6 +119,15 @@ setup_ssh_for_github() {
 
     cat "${SSH_KEY}.pub"
     echo ""
+
+    # Pause the script and wait for the user to type 'continue'
+    read -p "Type 'continue' to proceed with the remaining setup: " input
+    input=$(echo "$input" | tr '[:upper:]' '[:lower:]') # Convert input to lowercase
+
+    if [ "$input" != "continue" ]; then
+        echo "Exiting script. Please run again and type 'continue' when prompted."
+        exit 1
+    fi
 }
 
 # Function to install required dependencies
@@ -169,44 +178,18 @@ install_dependencies() {
     npm install pm2@latest -g
 }
 
-# Function to create MongoDB admin user
-create_mongo_admin_user() {
-        mongosh <<EOF
-    use admin
-    db.createUser({
-    user: "$ADMIN_USER",
-    pwd: "$ADMIN_PWD",
-    roles: [ { role: "readWriteAnyDatabase", db: "admin" }, { role: "userAdminAnyDatabase", db: "admin" } ]
-    })
-    EOF
-}
-
-
 # Function to enable authentication in MongoDB configuration
 enable_authentication() {
     # Check if 'security' line is commented out and uncomment it
     sudo sed -i '/^#security:/s/^#//' /etc/mongod.conf
-
     # Check if 'authorization: enabled' is present; if not, add it under 'security'
     if ! grep -q 'authorization: enabled' /etc/mongod.conf; then
         sudo sed -i '/^security:/a\  authorization: enabled' /etc/mongod.conf
     fi
-
     # Restart MongoDB to apply changes
     sudo systemctl restart mongod
 }
 
-# Function to create a new database user
-create_new_user() {
-        mongosh --authenticationDatabase "admin" -u "$ADMIN_USER" -p "$ADMIN_PWD" <<EOF
-    use $NEW_DB
-    db.createUser({
-    user: "$NEW_USER",
-    pwd: "$NEW_PWD",
-    roles: [{ role: "dbAdmin", db: "$NEW_DB" }, { role: "readWrite", db: "$NEW_DB" }, { role: "userAdmin", db: "$NEW_DB" }]
-    })
-    EOF
-}
 
 # Function to restore database from backup archive
 restore_from_backup() {
@@ -238,8 +221,16 @@ setup_mongodb(){
         echo "Passwords do not match. Please try again."
     done
 
-    echo "Enter MongoDB Backup Archive Path"
-    read -p "Backup Archive Path: " BACKUP_ARCHIVE
+    BACKUP_PATH=""
+
+    while [ ! -f "$BACKUP_PATH" ]; do
+        read -p "Enter the backup file name(it should be in /home/user/backups/) to restore: " backup_file_path
+        BACKUP_PATH="${PROJECT_PATH}/backups/$backup_file_path"
+
+        if [ ! -f "$BACKUP_PATH" ]; then
+            echo "Backup file $BACKUP_PATH does not exist. Please try again."
+        fi
+    done
 
 
     # Main script execution
@@ -350,29 +341,29 @@ install_ssl() {
 
 
 # Function to restore the database
-restore_database() {
-    read -p "Enter MongoDB database name: " db_name
-    read -p "Enter MongoDB username: " db_user
-    read -p "Enter MongoDB password: " db_pass
-    BACKUP_PATH=""
+# restore_database() {
+#     read -p "Enter MongoDB database name: " db_name
+#     read -p "Enter MongoDB username: " db_user
+#     read -p "Enter MongoDB password: " db_pass
+#     BACKUP_PATH=""
 
-    while [ ! -f "$BACKUP_PATH" ]; do
-        read -p "Enter the backup file name to restore: " backup_file_path
-        BACKUP_PATH="${PROJECT_PATH}/backups/$backup_file_path"
+#     while [ ! -f "$BACKUP_PATH" ]; do
+#         read -p "Enter the backup file name to restore: " backup_file_path
+#         BACKUP_PATH="${PROJECT_PATH}/backups/$backup_file_path"
 
-        if [ ! -f "$BACKUP_PATH" ]; then
-            echo "Backup file $BACKUP_PATH does not exist. Please try again."
-        fi
-    done
-    # MongoDB command to create a user
-    CREATE_USER="db.createUser({user: '$db_user', pwd: '$db_pass', roles: [{role: 'readWrite', db: '$db_name'}]})"
-    AUTHENTICATE_USER="db.auth({user: '$db_user', pwd: '$db_pass'})"
+#         if [ ! -f "$BACKUP_PATH" ]; then
+#             echo "Backup file $BACKUP_PATH does not exist. Please try again."
+#         fi
+#     done
+#     # MongoDB command to create a user
+#     CREATE_USER="db.createUser({user: '$db_user', pwd: '$db_pass', roles: [{role: 'readWrite', db: '$db_name'}]})"
+#     AUTHENTICATE_USER="db.auth({user: '$db_user', pwd: '$db_pass'})"
 
-    # Connect to MongoDB and execute the command
-    mongod --eval "use $db_name; $CREATE_USER"
-    mongod --eval "use $db_name; $AUTHENTICATE_USER"
-    mongorestore --uri "mongodb://$db_user:$db_pass@localhost:27017/$db_name" --gzip --archive=$BACKUP_PATH
-}
+#     # Connect to MongoDB and execute the command
+#     mongod --eval "use $db_name; $CREATE_USER"
+#     mongod --eval "use $db_name; $AUTHENTICATE_USER"
+#     mongorestore --uri "mongodb://$db_user:$db_pass@localhost:27017/$db_name" --gzip --archive=$BACKUP_PATH
+# }
 
 # Function to build and run the application
 build_and_run_app() {
@@ -398,7 +389,7 @@ continue_as_sudo_user() {
     clone_repositories
     copy_configurations
     sync_do_spaces_to_backups
-    restore_database
+    setup_mongodb
     build_and_run_app
     configure_firewall
     install_ssl
@@ -432,3 +423,30 @@ main() {
 
 # Execute main function
 main
+
+
+
+# Function to create MongoDB admin user
+create_mongo_admin_user() {
+        mongosh <<EOF
+    use admin
+    db.createUser({
+    user: "$ADMIN_USER",
+    pwd: "$ADMIN_PWD",
+    roles: [ { role: "readWriteAnyDatabase", db: "admin" }, { role: "userAdminAnyDatabase", db: "admin" } ]
+    })
+    EOF
+}
+
+
+# Function to create a new database user
+create_new_user() {
+        mongosh --authenticationDatabase "admin" -u "$ADMIN_USER" -p "$ADMIN_PWD" <<EOF
+    use $NEW_DB
+    db.createUser({
+    user: "$NEW_USER",
+    pwd: "$NEW_PWD",
+    roles: [{ role: "dbAdmin", db: "$NEW_DB" }, { role: "readWrite", db: "$NEW_DB" }, { role: "userAdmin", db: "$NEW_DB" }]
+    })
+    EOF
+}
