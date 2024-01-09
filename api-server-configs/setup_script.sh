@@ -412,9 +412,9 @@ continue_as_sudo_user() {
     clone_repositories
     copy_configurations
     sync_do_spaces_to_backups
+    configure_firewall
     setup_mongodb
     build_and_run_app
-    configure_firewall
     install_ssl
 
     echo "Setup completed successfully."
