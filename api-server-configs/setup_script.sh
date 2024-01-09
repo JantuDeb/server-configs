@@ -216,7 +216,7 @@ enable_authentication() {
 
 # Function to restore database from backup archive
 restore_from_backup() {
-    mongorestore --uri="mongodb://$NEW_USER:$NEW_PWD@localhost:27017/$NEW_DB" --nsInclude="*" --archive="$BACKUP_ARCHIVE" --gzip
+    mongorestore --uri="mongodb://$NEW_USER:$NEW_PWD@localhost:27017/$NEW_DB" --nsInclude="*" --archive="$BACKUP_PATH" --gzip
 }
 
 setup_mongodb(){
