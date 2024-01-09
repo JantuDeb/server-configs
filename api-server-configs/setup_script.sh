@@ -340,6 +340,7 @@ configure_firewall() {
     sudo ufw default allow outgoing
     sudo ufw allow OpenSSH
     sudo ufw allow 'Nginx Full'
+    sudo ufw allow 27017
     sudo ufw enable
 }
 
