@@ -310,10 +310,9 @@ copy_configurations() {
     fi
     
     # sudo cp ${PROJECT_PATH}/server-configs/api-server-configs/mongod.conf /etc/
-    sudo ln -s /etc/nginx/sites-available/$VIRTUAL_HOST /etc/nginx/sites-enabled/
 
     # Reload Nginx to apply new configurations
-    #sudo nginx -t && sudo systemctl reload nginx
+    sudo nginx -t && sudo systemctl reload nginx
 }
 
 # Function to sync data from DigitalOcean Spaces to the local backups directory
@@ -347,17 +346,17 @@ configure_firewall() {
 # Function to install and configure SSL
 install_ssl() {
     # Ask user if they want to install SSL
-    read -p "Do you want to install SSL? (y/n): " install_ssl_answer
+    read -p "Do you want to install SSL (You can do manual install and editing virtualhost config) ? (y/n): " install_ssl_answer
 
     # Check if the user's answer is 'y' or 'Y'
     if [[ $install_ssl_answer == [Yy] ]]; then
         # Install Certbot and its Nginx plugin
         sudo apt install -y certbot python3-certbot-nginx
-        # Prompt for domain name input
-        read -p "Enter your domain name: " domain
         # Install the certificate without modifying Nginx configuration
-        sudo certbot certonly --nginx -d "$domain"
+        sudo certbot certonly --nginx -d "$NEW_SERVER_NAME"
         sudo service nginx restart
+	sleep 5
+ 	sudo ln -s /etc/nginx/sites-available/$VIRTUAL_HOST /etc/nginx/sites-enabled/
     else
         echo "SSL installation skipped."
     fi
