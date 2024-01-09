@@ -178,29 +178,27 @@ install_dependencies() {
     npm install pm2@latest -g
 }
 
-# Function to create MongoDB admin user
 create_mongo_admin_user() {
-        mongosh <<EOF
-    use admin
-    db.createUser({
-    user: "$ADMIN_USER",
-    pwd: "$ADMIN_PWD",
-    roles: [ { role: "readWriteAnyDatabase", db: "admin" }, { role: "userAdminAnyDatabase", db: "admin" } ]
-    })
-    EOF
+    mongosh <<EOF
+	use admin
+	db.createUser({
+	user: "$ADMIN_USER",
+	pwd: "$ADMIN_PWD",
+	roles: [ { role: "readWriteAnyDatabase", db: "admin" }, { role: "userAdminAnyDatabase", db: "admin" } ]
+	})
+EOF
 }
-
 
 # Function to create a new database user
 create_new_user() {
-        mongosh --authenticationDatabase "admin" -u "$ADMIN_USER" -p "$ADMIN_PWD" <<EOF
-    use $NEW_DB
-    db.createUser({
-    user: "$NEW_USER",
-    pwd: "$NEW_PWD",
-    roles: [{ role: "dbAdmin", db: "$NEW_DB" }, { role: "readWrite", db: "$NEW_DB" }, { role: "userAdmin", db: "$NEW_DB" }]
-    })
-    EOF
+    mongosh --authenticationDatabase "admin" -u "$ADMIN_USER" -p "$ADMIN_PWD" <<EOF
+	use $NEW_DB
+	db.createUser({
+	user: "$NEW_USER",
+	pwd: "$NEW_PWD",
+	roles: [{ role: "dbAdmin", db: "$NEW_DB" }, { role: "readWrite", db: "$NEW_DB" }, { role: "userAdmin", db: "$NEW_DB" }]
+	})
+EOF
 }
 
 # Function to enable authentication in MongoDB configuration
