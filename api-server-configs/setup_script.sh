@@ -392,7 +392,7 @@ install_ssl() {
 build_and_run_app() {
     cd ${PROJECT_PATH}/frontend && npm install && npm run build
     cd ${PROJECT_PATH}/backend && npm install
-    pm2 start app.js
+    pm2 start index.js
     pm2 save
     pm2 startup
 }
