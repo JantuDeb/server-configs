@@ -131,85 +131,200 @@ setup_ssh_for_github() {
 }
 
 # Function to install required dependencies
+# install_dependencies() {
+#     sudo apt update && sudo apt upgrade -y
+#     sudo apt install -y nginx git gnupg curl
+
+#     # Install MongoDB
+#     curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+#     echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+#     sudo apt-get update
+#     sudo apt-get install -y mongodb-org
+
+#     # Restart services
+#     sudo systemctl restart nginx
+#     sudo systemctl restart mongod
+#     MONGO_CONFIG_FILE=/etc/mongod.conf
+#     # Ask for an additional IP address to bind MongoDB
+#     read -p "Enter an additional IP address to bind MongoDB (optional): " additional_ip
+#     if [ ! -z "$additional_ip" ]; then
+#         sudo sed -i "/^  bindIp:/ s/$/, $additional_ip/" $MONGO_CONFIG_FILE
+#         sudo systemctl restart mongod
+#     fi
+
+#     # Ask if user wants to bind the server IP address
+#     read -p "Do you want to bind the server's IP address to MongoDB? [Y/n] " bind_server_ip
+#     if [[ $bind_server_ip =~ ^[Yy]$ ]]
+#     then
+#         # Get the primary IP address of the server
+#         server_ip=$(hostname -I | awk '{print $1}')
+
+#         if [ ! -z "$server_ip" ]; then
+#             echo "Binding server IP address ($server_ip) to MongoDB configuration..."
+#             sudo sed -i "/^  bindIp:/ s/$/, $server_ip/" $MONGO_CONFIG_FILE
+#             sudo systemctl restart mongod
+#         else
+#             echo "Failed to retrieve server IP address."
+#         fi
+#     fi
+
+#     # Install Node.js and PM2
+#     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+
+#     export NVM_DIR="$HOME/.nvm"
+#     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+#     [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+#     nvm install --lts
+#     npm install pm2@latest -g
+# }
+
+# Function to install required dependencies
 install_dependencies() {
     sudo apt update && sudo apt upgrade -y
-    sudo apt install -y nginx git gnupg curl
 
-    # Install MongoDB
-    curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
-    echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
-    sudo apt-get update
-    sudo apt-get install -y mongodb-org
-
-    # Restart services
-    sudo systemctl restart nginx
-    sudo systemctl restart mongod
-    MONGO_CONFIG_FILE=/etc/mongod.conf
-    # Ask for an additional IP address to bind MongoDB
-    read -p "Enter an additional IP address to bind MongoDB (optional): " additional_ip
-    if [ ! -z "$additional_ip" ]; then
-        sudo sed -i "/^  bindIp:/ s/$/, $additional_ip/" $MONGO_CONFIG_FILE
-        sudo systemctl restart mongod
-    fi
-
-    # Ask if user wants to bind the server IP address
-    read -p "Do you want to bind the server's IP address to MongoDB? [Y/n] " bind_server_ip
-    if [[ $bind_server_ip =~ ^[Yy]$ ]]
-    then
-        # Get the primary IP address of the server
-        server_ip=$(hostname -I | awk '{print $1}')
-
-        if [ ! -z "$server_ip" ]; then
-            echo "Binding server IP address ($server_ip) to MongoDB configuration..."
-            sudo sed -i "/^  bindIp:/ s/$/, $server_ip/" $MONGO_CONFIG_FILE
-            sudo systemctl restart mongod
-        else
-            echo "Failed to retrieve server IP address."
+    # Check and Install Nginx
+    if nginx -v > /dev/null 2>&1; then
+        read -p "Nginx is already installed. Do you want to reinstall it? [Y/n] " reinstall_nginx
+        if [[ $reinstall_nginx =~ ^[Yy]$ ]]; then
+            sudo apt-get install --reinstall nginx
         fi
+    else
+        sudo apt install -y nginx
     fi
 
-    # Install Node.js and PM2
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+    # Check and Install GnuPG
+    if gpg --version > /dev/null 2>&1; then
+        read -p "GnuPG is already installed. Do you want to reinstall it? [Y/n] " reinstall_gnupg
+        if [[ $reinstall_gnupg =~ ^[Yy]$ ]]; then
+            sudo apt-get install --reinstall gnupg
+        fi
+    else
+        sudo apt install -y gnupg
+    fi
 
-    export NVM_DIR="$HOME/.nvm"
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-    [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-    nvm install --lts
-    npm install pm2@latest -g
+    # MongoDB Installation
+    if mongod --version > /dev/null 2>&1; then
+        read -p "MongoDB is already installed. Do you want to reinstall it? [Y/n] " reinstall_mongodb
+        if [[ $reinstall_mongodb =~ ^[Yy]$ ]]; then
+            sudo apt-get install --reinstall mongodb-org
+        fi
+    else
+        # Proceed with MongoDB installation commands
+        curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+        echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+        sudo apt-get update
+        sudo apt-get install -y mongodb-org
+    fi
+
+
+    # MongoDB Configuration
+    configure_mongodb
+
+    # Check and Install NVM and Node.js
+    install_nvm_and_node
+
+    # Check and install pm2
+    instal_pm2
+}
+
+configure_mongodb() {
+    read -p "Do you want to configure MongoDB? [Y/n] " configure_mongo
+    if [[ $configure_mongo =~ ^[Yy]$ ]]; then
+        MONGO_CONFIG_FILE=/etc/mongod.conf
+        # Ask for an additional IP address to bind MongoDB
+        read -p "Enter an additional IP address to bind MongoDB (optional): " additional_ip
+        if [ ! -z "$additional_ip" ]; then
+            sudo sed -i "/^  bindIp:/ s/$/, $additional_ip/" $MONGO_CONFIG_FILE
+            sudo systemctl restart mongod
+        fi
+
+        # Ask if user wants to bind the server IP address
+        read -p "Do you want to bind the server's IP address to MongoDB? [Y/n] " bind_server_ip
+        if [[ $bind_server_ip =~ ^[Yy]$ ]]
+        then
+            # Get the primary IP address of the server
+            server_ip=$(hostname -I | awk '{print $1}')
+            if [ ! -z "$server_ip" ]; then
+                echo "Binding server IP address ($server_ip) to MongoDB configuration..."
+                sudo sed -i "/^  bindIp:/ s/$/, $server_ip/" $MONGO_CONFIG_FILE
+                sudo systemctl restart mongod
+            else
+                echo "Failed to retrieve server IP address."
+            fi
+        fi
+    else
+        echo "MongoDB configuration skipped."
+    fi
+}
+
+install_nvm_and_node() {
+  # Check and Install NVM
+    if [ -d "$HOME/.nvm" ]; then
+        read -p "NVM is already installed. Do you want to reinstall it? [Y/n] " reinstall_nvm
+        if [[ $reinstall_nvm =~ ^[Yy]$ ]]; then
+            rm -rf "$HOME/.nvm"
+            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+        fi
+    else
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+    fi
+
+    source "$HOME/.nvm/nvm.sh"
+    # Check and Install Node.js
+    if nvm ls > /dev/null 2>&1; then
+        read -p "Node.js is already installed. Do you want to reinstall it? [Y/n] " reinstall_node
+        if [[ $reinstall_node =~ ^[Yy]$ ]]; then
+            nvm install --lts --reinstall-packages-from=current
+        fi
+    else
+        nvm install --lts
+    fi
+
+}
+
+instal_pm2(){
+    if pm2 -v > /dev/null 2>&1; then
+        read -p "PM2 is already installed. Do you want to reinstall it? [Y/n] " reinstall_pm2
+        if [[ $reinstall_pm2 =~ ^[Yy]$ ]]; then
+            npm install pm2@latest -g
+        fi
+    else
+        npm install pm2@latest -g
+    fi
 }
 
 create_mongo_admin_user() {
     mongosh <<EOF
-	use admin
-	db.createUser({
-	user: "$ADMIN_USER",
-	pwd: "$ADMIN_PWD",
-	roles: [ { role: "readWriteAnyDatabase", db: "admin" }, { role: "userAdminAnyDatabase", db: "admin" } ]
-	})
+    use admin
+    db.createUser({
+    user: "$ADMIN_USER",
+    pwd: "$ADMIN_PWD",
+    roles: [ { role: "readWriteAnyDatabase", db: "admin" }, { role: "userAdminAnyDatabase", db: "admin" },{ role: 'dbAdminAnyDatabase', db: 'admin' } ]
+    })
 EOF
 }
 
 # Function to create a new database user
 create_new_user() {
     mongosh --authenticationDatabase "admin" -u "$ADMIN_USER" -p "$ADMIN_PWD" <<EOF
-	use $NEW_DB
-	db.createUser({
-	user: "$NEW_USER",
-	pwd: "$NEW_PWD",
-	roles: [{ role: "dbAdmin", db: "$NEW_DB" }, { role: "readWrite", db: "$NEW_DB" }, { role: "userAdmin", db: "$NEW_DB" }]
-	})
+    use $NEW_DB
+    db.createUser({
+    user: "$NEW_USER",
+    pwd: "$NEW_PWD",
+    roles: [{ role: "dbAdmin", db: "$NEW_DB" }, { role: "readWrite", db: "$NEW_DB" }, { role: "userAdmin", db: "$NEW_DB" }]
+    })
 EOF
 }
 
 # Function to enable authentication in MongoDB configuration
 enable_authentication() {
-    # Check if 'security' line is commented out and uncomment it
+# Check if 'security' line is commented out and uncomment it
     sudo sed -i '/^#security:/s/^#//' /etc/mongod.conf
-    # Check if 'authorization: enabled' is present; if not, add it under 'security'
+# Check if 'authorization: enabled' is present; if not, add it under 'security'
     if ! grep -q 'authorization: enabled' /etc/mongod.conf; then
         sudo sed -i '/^security:/a\  authorization: enabled' /etc/mongod.conf
     fi
-    # Restart MongoDB to apply changes
+# Restart MongoDB to apply changes
     sudo systemctl restart mongod
 }
 
@@ -231,6 +346,22 @@ setup_mongodb(){
         echo "Passwords do not match. Please try again."
     done
 
+    echo "Checking if MongoDB authentication is already enabled..."
+    AUTH_ENABLED=$(awk '/^security:/{flag=1;next}/^$/{flag=0}flag && /authorization: *enabled/{print "yes"; exit}' /etc/mongod.conf)
+    if [ "$AUTH_ENABLED" != "yes" ]; then
+    	AUTH_ENABLED="no"
+    fi
+
+    if [ "$AUTH_ENABLED" = "no" ]; then
+        echo "MongoDB authentication is not enabled. Setting up admin user..."
+        create_mongo_admin_user
+        enable_authentication
+        sudo systemctl restart mongod
+        sleep 5  # Wait for MongoDB to restart
+    else
+        echo "MongoDB authentication is already enabled. Using provided admin credentials."
+    fi
+
     echo "Enter New Database and User Credentials"
     read -p "New Database Name: " NEW_DB
     read -p "New Username: " NEW_USER
@@ -247,7 +378,7 @@ setup_mongodb(){
     BACKUP_PATH=""
 
     while [ ! -f "$BACKUP_PATH" ]; do
-        read -p "Enter the backup file name(it should be in /home/user/backups/) to restore: " backup_file_path
+        read -p "Enter the backup file name (it should be in /home/user/backups/) to restore: " backup_file_path
         BACKUP_PATH="${PROJECT_PATH}/backups/$backup_file_path"
 
         if [ ! -f "$BACKUP_PATH" ]; then
@@ -255,17 +386,10 @@ setup_mongodb(){
         fi
     done
 
-
-    # Main script execution
-    create_mongo_admin_user
-    enable_authentication
-    sudo service mongod restart
-    sleep 5  # Wait for MongoDB to restart
     create_new_user
     restore_from_backup
 
     echo "MongoDB setup and restore complete."
-
 }
 
 
@@ -273,7 +397,7 @@ setup_mongodb(){
 clone_repositories() {
     mkdir -p ${PROJECT_PATH}/{backend,frontend,server-configs,backups}
     git clone git@github.com:JantuDeb/studypath-api-v2.git ${PROJECT_PATH}/backend
-    git clone git@github.com:JantuDeb/studypath-api-admin.git ${PROJECT_PATH}/frontend
+    git clone git@github.com:JantuDeb/studypath-api-admin-v2.git ${PROJECT_PATH}/frontend
     git clone git@github.com:JantuDeb/server-configs.git ${PROJECT_PATH}/server-configs
 }
 
