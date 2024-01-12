@@ -362,33 +362,45 @@ setup_mongodb(){
         echo "MongoDB authentication is already enabled. Using provided admin credentials."
     fi
 
-    echo "Enter New Database and User Credentials"
-    read -p "New Database Name: " NEW_DB
-    read -p "New Username: " NEW_USER
-
+    # echo "MongoDB setup and restore complete."
     while true; do
-        read -sp "New Password: " NEW_PWD
-        echo
-        read -sp "Confirm New Password: " NEW_PWD_CONFIRM
-        echo
-        [ "$NEW_PWD" = "$NEW_PWD_CONFIRM" ] && break
-        echo "Passwords do not match. Please try again."
+        # Enter New Database and User Credentials
+        read -p "New Database Name: " NEW_DB
+        read -p "New Username: " NEW_USER
+
+        while true; do
+            read -sp "New Password: " NEW_PWD
+            echo
+            read -sp "Confirm New Password: " NEW_PWD_CONFIRM
+            echo
+            [ "$NEW_PWD" = "$NEW_PWD_CONFIRM" ] && break
+            echo "Passwords do not match. Please try again."
+        done
+
+        BACKUP_PATH=""
+
+        while [ ! -f "$BACKUP_PATH" ]; do
+            read -p "Enter the backup file name (it should be in /home/user/backups/) to restore: " backup_file_path
+            BACKUP_PATH="$PROJECT_PATH/backups/$backup_file_path"
+
+            if [ ! -f "$BACKUP_PATH" ]; then
+                echo "Backup file $BACKUP_PATH does not exist. Please try again."
+            fi
+        done
+
+        create_new_user
+        restore_from_backup
+
+        # Ask if the user wants to restore another database
+        read -p "Do you want to restore another database? (yes/no): " answer
+        case $answer in
+            [Yy]* ) continue;;
+            [Nn]* ) break;;
+            * ) echo "Please answer yes or no.";;
+        esac
     done
 
-    BACKUP_PATH=""
-
-    while [ ! -f "$BACKUP_PATH" ]; do
-        read -p "Enter the backup file name (it should be in /home/user/backups/) to restore: " backup_file_path
-        BACKUP_PATH="${PROJECT_PATH}/backups/$backup_file_path"
-
-        if [ ! -f "$BACKUP_PATH" ]; then
-            echo "Backup file $BACKUP_PATH does not exist. Please try again."
-        fi
-    done
-
-    create_new_user
-    restore_from_backup
-
+    echo "All operations completed."
     echo "MongoDB setup and restore complete."
 }
 
@@ -396,15 +408,16 @@ setup_mongodb(){
 # Function to clone repositories and set up directories
 clone_repositories() {
     mkdir -p ${PROJECT_PATH}/{backend,frontend,server-configs,backups}
-    git clone git@github.com:JantuDeb/studypath-api-v2.git ${PROJECT_PATH}/backend
-    git clone git@github.com:JantuDeb/studypath-api-admin-v2.git ${PROJECT_PATH}/frontend
+    git clone git@github.com:JantuDeb/studypath-api-v2.git ${PROJECT_PATH}/backend/studypath-api-v2
+    git clone git@github.com:JantuDeb/studypath-api.git ${PROJECT_PATH}/backend/studypath-api
+    git clone git@github.com:JantuDeb/studypath-api-admin-v2.git ${PROJECT_PATH}/frontend/studypath-api-admin-v2
+    git clone git@github.com:JantuDeb/studypath-api-admin.git ${PROJECT_PATH}/frontend/studypath-api-admin
     git clone git@github.com:JantuDeb/server-configs.git ${PROJECT_PATH}/server-configs
 }
 
 
 # Function to copy configurations from server-config repo and create backups
 copy_configurations() {
-    NEW_ROOT_PATH=${PROJECT_PATH}/frontend/studypath-admin-v2/build
     # Prompt user for the virtual host configuration file name
     read -p "Please enter the virtual host configuration file name (e.g., domainname.com): " VIRTUAL_HOST
 
@@ -423,6 +436,7 @@ copy_configurations() {
      # Prompt user to enter a new server name
     read -p "Please enter the new server name for the Nginx configuration (e.g., example.com): " NEW_SERVER_NAME
 
+    NEW_ROOT_PATH=/var/www/$NEW_SERVER_NAME
     # Update the server_name in the Nginx configuration
     sudo sed -i "s/server_name .*;/server_name $NEW_SERVER_NAME;/" /etc/nginx/sites-available/$VIRTUAL_HOST
     sudo sed -i "s/example\.com/$NEW_SERVER_NAME/g" /etc/nginx/sites-available/$VIRTUAL_HOST
@@ -487,30 +501,6 @@ install_ssl() {
 }
 
 
-# Function to restore the database
-# restore_database() {
-#     read -p "Enter MongoDB database name: " db_name
-#     read -p "Enter MongoDB username: " db_user
-#     read -p "Enter MongoDB password: " db_pass
-#     BACKUP_PATH=""
-
-#     while [ ! -f "$BACKUP_PATH" ]; do
-#         read -p "Enter the backup file name to restore: " backup_file_path
-#         BACKUP_PATH="${PROJECT_PATH}/backups/$backup_file_path"
-
-#         if [ ! -f "$BACKUP_PATH" ]; then
-#             echo "Backup file $BACKUP_PATH does not exist. Please try again."
-#         fi
-#     done
-#     # MongoDB command to create a user
-#     CREATE_USER="db.createUser({user: '$db_user', pwd: '$db_pass', roles: [{role: 'readWrite', db: '$db_name'}]})"
-#     AUTHENTICATE_USER="db.auth({user: '$db_user', pwd: '$db_pass'})"
-
-#     # Connect to MongoDB and execute the command
-#     mongod --eval "use $db_name; $CREATE_USER"
-#     mongod --eval "use $db_name; $AUTHENTICATE_USER"
-#     mongorestore --uri "mongodb://$db_user:$db_pass@localhost:27017/$db_name" --gzip --archive=$BACKUP_PATH
-# }
 
 # Function to build and run the application
 build_and_run_app() {
@@ -535,7 +525,7 @@ continue_as_sudo_user() {
     install_dependencies
     clone_repositories
     copy_configurations
-    sync_do_spaces_to_backups
+    # sync_do_spaces_to_backups
     configure_firewall
     setup_mongodb
     build_and_run_app
@@ -547,16 +537,6 @@ continue_as_sudo_user() {
 
 
 main() {
-    # Check if the script is executed with sudo by a non-root user
-    # if [ -n "$SUDO_USER" ]; then
-    #     continue_as_sudo_user
-    # elif [ "$(id -u)" -eq 0 ]; then
-    #     create_sudo_user
-    # else
-    #     echo "Please run this script as root or with 'sudo'."
-    #     exit 1
-    # fi
-
     if [ `whoami` != 'root' ];then
 	    if sudo -l &> /dev/null; then
                 continue_as_sudo_user
