@@ -130,53 +130,6 @@ setup_ssh_for_github() {
     fi
 }
 
-# Function to install required dependencies
-# install_dependencies() {
-#     sudo apt update && sudo apt upgrade -y
-#     sudo apt install -y nginx git gnupg curl
-
-#     # Install MongoDB
-#     curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
-#     echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
-#     sudo apt-get update
-#     sudo apt-get install -y mongodb-org
-
-#     # Restart services
-#     sudo systemctl restart nginx
-#     sudo systemctl restart mongod
-#     MONGO_CONFIG_FILE=/etc/mongod.conf
-#     # Ask for an additional IP address to bind MongoDB
-#     read -p "Enter an additional IP address to bind MongoDB (optional): " additional_ip
-#     if [ ! -z "$additional_ip" ]; then
-#         sudo sed -i "/^  bindIp:/ s/$/, $additional_ip/" $MONGO_CONFIG_FILE
-#         sudo systemctl restart mongod
-#     fi
-
-#     # Ask if user wants to bind the server IP address
-#     read -p "Do you want to bind the server's IP address to MongoDB? [Y/n] " bind_server_ip
-#     if [[ $bind_server_ip =~ ^[Yy]$ ]]
-#     then
-#         # Get the primary IP address of the server
-#         server_ip=$(hostname -I | awk '{print $1}')
-
-#         if [ ! -z "$server_ip" ]; then
-#             echo "Binding server IP address ($server_ip) to MongoDB configuration..."
-#             sudo sed -i "/^  bindIp:/ s/$/, $server_ip/" $MONGO_CONFIG_FILE
-#             sudo systemctl restart mongod
-#         else
-#             echo "Failed to retrieve server IP address."
-#         fi
-#     fi
-
-#     # Install Node.js and PM2
-#     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-
-#     export NVM_DIR="$HOME/.nvm"
-#     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-#     [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-#     nvm install --lts
-#     npm install pm2@latest -g
-# }
 
 # Function to install required dependencies
 install_dependencies() {
@@ -504,8 +457,8 @@ install_ssl() {
 
 # Function to build and run the application
 build_and_run_app() {
-    cd ${PROJECT_PATH}/frontend && npm install && npm run build
-    cd ${PROJECT_PATH}/backend && npm install
+    cd ${PROJECT_PATH}/frontend/studypath-api-admin-v2 && npm install && npm run build
+    cd ${PROJECT_PATH}/backend/studypath-api-v2 && npm install
     pm2 start index.js
     pm2 save
     pm2 startup
