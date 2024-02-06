@@ -364,7 +364,7 @@ clone_repositories() {
     git clone git@github.com:JantuDeb/studypath-api-v2.git ${PROJECT_PATH}/backend/studypath-api-v2
     git clone git@github.com:JantuDeb/studypath-api.git ${PROJECT_PATH}/backend/studypath-api
     git clone git@github.com:JantuDeb/studypath-admin-v2.git ${PROJECT_PATH}/frontend/studypath-admin-v2
-    git clone git@github.com:JantuDeb/studypath-admin.git ${PROJECT_PATH}/frontend/studypath-admin
+    git clone git@github.com:JantuDeb/studypath-api-admin.git ${PROJECT_PATH}/frontend/studypath-admin
     git clone git@github.com:JantuDeb/server-configs.git ${PROJECT_PATH}/server-configs
 }
 
