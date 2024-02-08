@@ -459,7 +459,7 @@ install_ssl() {
 build_and_run_app() {
     cd ${PROJECT_PATH}/frontend/studypath-admin-v2 && npm install && npm run build
     cd ${PROJECT_PATH}/backend/studypath-api-v2 && npm install
-    sudo cp ${PROJECT_PATH}/frontend/studypath-admin-v2/dist/ ${NEW_ROOT_PATH}/
+    sudo cp -r ${PROJECT_PATH}/frontend/studypath-admin-v2/dist/ ${NEW_ROOT_PATH}/
     pm2 start index.js
     pm2 save
     pm2 startup
